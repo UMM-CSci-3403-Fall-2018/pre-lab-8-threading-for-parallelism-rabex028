@@ -96,7 +96,15 @@ public class ThreadedSearch<T> implements Searcher<T>, Runnable {
 
     public void run() {
 
-       
+           for (int i = begin; i < end; i++) {
+
+               if (answer.getAnswer() == true){ break; }
+
+               if (list.get(i).equals(target)) {
+                   answer.setAnswer(true);
+               }
+           }
+
     }
 
     private class Answer {

@@ -29,77 +29,63 @@ public class ThreadedSearch<T> implements Searcher<T>, Runnable {
      * You can assume that the list size is divisible by `numThreads`
      */
     public boolean search(T target, List<T> list) throws InterruptedException {
-        /*
-         * First construct an instance of the `Answer` inner class. This will
-         * be how the threads you're about to create will "communicate". They
-         * will all have access to this one shared instance of `Answer`, where
-         * they can update the `answer` field inside that instance.
-         *
-         * Then construct `numThreads` instances of this class (`ThreadedSearch`)
-         * using the 5 argument constructor for the class. You'll hand each of
-         * them the same `target`, `list`, and `answer`. What will be different
-         * about each instance is their `begin` and `end` values, which you'll
-         * use to give each instance the "job" of searching a different segment
-         * of the list. If, for example, the list has length 100 and you have
-         * 4 threads, you would give the four threads the ranges [0, 25), [25, 50),
-         * [50, 75), and [75, 100) as their sections to search.
-         *
-         * You then construct `numThreads`, each of which is given a different
-         * instance of this class as its `Runnable`. Then start each of those
-         * threads, wait for them to all terminate, and then return the answer
-         * in the shared `Answer` instance.
-         */
 
         Answer sharedAnswer = new Answer();
 
+        // Create Arrays to hold the threadedSearch and Thread instances
         ThreadedSearch[] searchArray = new ThreadedSearch[numThreads];
         Thread[] threads = new Thread[numThreads];
 
+        // Loop to initialize the threadedSearches with the appropriate ranges
         for(int i = 0; i < numThreads; i++) {
-            searchArray[i] = new ThreadedSearch<T>(target, list, getBeginningRange(i,list.size()), getEndRange(i, list.size()), sharedAnswer);
+            searchArray[i] = new ThreadedSearch<T>(target, list, getBeginningRange(i, list.size()), getEndRange(i, list.size()), sharedAnswer);
         }
 
+        // Initializes Threads with the correct threadedSearch and starts them
         for(int i = 0; i < numThreads; i++) {
             threads[i] = new Thread(searchArray[i]);
             threads[i].start();
         }
 
+        // Wait for threads to finish
         for (int i = 0; i < numThreads; i++) {
             threads[i].join();
         }
 
-        return false;
+        return sharedAnswer.getAnswer();
     }
 
-    public int getBeginningRange(double index, double listLength) {
+    public int getBeginningRange(int threadNumber, int listSize) {
 
-        int begin;
-        if(index == 0) {
-            begin = 0;
-        } else {
-            begin = (int) Math.floor(listLength / index);
-        }
+        // Provides the size of each range
+        int partitionSize = (int)Math.ceil(listSize/numThreads);
+        int begin = partitionSize * threadNumber;
+
         return begin;
     }
 
-    public int getEndRange(double index, double listLength) {
+    public int getEndRange(int threadNumber, int listSize) {
 
+        int partitionSize = (int)Math.ceil(listSize/numThreads);
         int end;
-        if(index == listLength - 1) {
-            end = (int) listLength - 1;
+
+        // Makes sure the size of the list matches the end range for last thread
+        if(threadNumber == numThreads - 1) {
+            end = listSize;
         } else {
-            end = (int) Math.floor(listLength / index + 1);
+            end = partitionSize * (threadNumber + 1);
         }
         return end;
     }
 
 
     public void run() {
-
            for (int i = begin; i < end; i++) {
-
+               //  Terminate the thread, the list has the target
                if (answer.getAnswer() == true){ break; }
 
+               // Set the shared answer to true to return the answer and
+               // Tell other threads to terminate
                if (list.get(i).equals(target)) {
                    answer.setAnswer(true);
                }
@@ -110,22 +96,8 @@ public class ThreadedSearch<T> implements Searcher<T>, Runnable {
     private class Answer {
         private boolean answer = false;
 
-        // In a more general setting you would typically want to synchronize
-        // this method as well. Because the answer is just a boolean that only
-        // goes from initial initial value (`false`) to `true` (and not back
-        // again), we can safely not synchronize this, and doing so substantially
-        // speeds up the lookup if we add calls to `getAnswer()` to every step in
-        // our threaded loops.
-        public boolean getAnswer() {
-            return answer;
-        }
+        public boolean getAnswer() { return answer; }
 
-        // This has to be synchronized to ensure that no two threads modify
-        // this at the same time, possibly causing race conditions.
-        // Actually, that's not really true here, because we're just overwriting
-        // the old value of answer with the new one, and no one will actually
-        // call with any value other than `true`. In general, though, you do
-        // need to synchronize update methods like this to avoid race conditions.
         public synchronized void setAnswer(boolean newAnswer) {
             answer = newAnswer;
         }
